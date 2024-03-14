@@ -2,28 +2,38 @@
 using System.Collections.Immutable;
 
 namespace WinFormsScraper;
+public enum ScrapeType
+{
+    ALL,
+    IMPORTANT,
+    SIZE_AND_LOCATION,
+    CUSTOM
+}
 
 public static class WinFormsScraperConfig
 {
-    static WinFormsScraperConfig()
-    {
-        ScrapeFilter = ImmutableHashSet<string>.Empty;
-    }
     public static string Path { get; set; } = "FormDetails.txt";
 
     public static ScrapeType Type { get; set; } = IMPORTANT;
 
-    public static ImmutableHashSet<string> ScrapeFilter { get; set; } = ImmutableHashSet<string>.Empty;
+    public static HashSet<string> ScrapeFilter { get; set; } = [];
+}
 
-    public static readonly Dictionary<ScrapeType, ImmutableHashSet<string>> ScrapeTypeToFilter = new()
-    {
-        { SIZE_AND_LOCATION, Size_And_Location_Filter! },
-        { IMPORTANT, Important_Filter! }
-    };
+public static class ScrapeSets
+{
 
-    private static readonly ImmutableHashSet<string> Size_And_Location_Filter =
-        ImmutableHashSet.Create("Size", "Location");
-
-    private static readonly ImmutableHashSet<string> Important_Filter =
+    public static readonly ImmutableHashSet<string> All =
         ImmutableHashSet.Create("Size", "Location", "ForeColour", "BackColour", "Font");
+    
+    public static readonly ImmutableHashSet<string> Important =
+        ImmutableHashSet.Create("Size", "Location", "ForeColour", "BackColour", "Font");
+
+    public static readonly ImmutableHashSet<string> SizeLocation =
+        ImmutableHashSet.Create("Size", "Location", "ForeColour", "BackColour", "Font");
+
+    public static readonly ImmutableHashSet<string> Font = 
+        ImmutableHashSet.Create("Font");
+
+    public static ImmutableHashSet<string> Custom => 
+        WinFormsScraperConfig.ScrapeFilter.ToImmutableHashSet();
 }

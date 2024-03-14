@@ -1,16 +1,10 @@
-﻿using Config = WinFormsScraper.WinFormsScraperConfig;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Collections.Immutable;
 using System.Diagnostics;
 
-namespace WinFormsScraper;
+using Config = WinFormsScraper.WinFormsScraperConfig;
 
-public enum ScrapeType
-{
-    ALL,
-    IMPORTANT,
-    SIZE_AND_LOCATION
-}
+namespace WinFormsScraper;
 
 /// <summary>
 /// Deals with scraping property data from Forms
@@ -18,16 +12,21 @@ public enum ScrapeType
 public static class WinFormsScraper
 {
     /// <summary>
-    /// A Hashset of all forms previously visited
+    /// Scrapes all forms based on a certain hashset
     /// </summary>
-    private static HashSet<string> s_printedForms = new();
+    /// <param name="hashset"></param>
+    public static void Scrape(HashSet<string> hashset)
+    {
+        Config.ScrapeFilter = hashset;
 
+        Scrape(CUSTOM, Assembly.GetCallingAssembly());
+    }
     /// <summary>
-    /// Scrapes everyform in the assembly
+    /// Scrapes every form in the assembly
     /// </summary>
     /// <param name="assembly">The assembly to check</param>
     /// <param name="scrapeType">What properties of control to print out</param>
-    public static void ScrapeAll(Assembly? assembly = null, ScrapeType? scrapeType = null)
+    public static void Scrape(ScrapeType? scrapeType = null, Assembly? assembly = null)
     {
         scrapeType ??= Config.Type;
         assembly ??= Assembly.GetCallingAssembly();
@@ -88,8 +87,11 @@ public static class WinFormsScraper
             // Check what Information should be printed
             ImmutableHashSet<string> filter = scrapeType switch
             {
-                ALL => ImmutableHashSet<string>.Empty,
-                ScrapeType scrape => Config.ScrapeTypeToFilter[scrape]
+                ALL => ScrapeSets.All,
+                IMPORTANT => ScrapeSets.Important,
+                SIZE_AND_LOCATION => ScrapeSets.SizeLocation,
+                CUSTOM => ScrapeSets.Custom,
+                _ => ImmutableHashSet<string>.Empty
             };
 
             if(filter is null)
@@ -98,7 +100,7 @@ public static class WinFormsScraper
             }
 
             // Iterate through all of the controls
-            foreach(Control control in controls)
+            foreach (Control control in controls)
             {
                 sw!.WriteLine($"{control.Name}:");
 
@@ -122,26 +124,20 @@ public static class WinFormsScraper
     {
         var props = control.GetType().GetProperties();
 
-        foreach(var prop in props)
+        foreach (var prop in props)
         {
-            if(filter is null)
-            {
-                Debug.Print($"Filter is null");
-                continue;
-            }
-
-            if(filter.Count != 0 && !filter.Contains(prop.Name))
+            if (filter is null || !filter.Contains(prop.Name))
             {
                 continue;
             }
-
 
             string str;
-            try {
+            try
+            {
                 // Grab the value of the property
-                str = $"\t\t{prop.Name}: {prop.GetMethod?.Invoke(control, new object[] { })}";
+                str = $"\t\t{prop.Name}: {PrettyPrint(prop.GetMethod?.Invoke(control, new object[] { }))}";
             }
-            catch(Exception)
+            catch (Exception)
             {
                 // Some weird property values may encounter this exception
                 // In that case, just ignore it
@@ -152,5 +148,24 @@ public static class WinFormsScraper
         }
     }
 
+    private static string? PrettyPrint(object? obj)
+    {
+        if(obj is Font font)
+        {
+            return $"{font.Name} - {font.Size}px";
+        }
+
+        if(obj is Point point)
+        {
+            return $"[{point.X}, {point.Y}]";
+        }
+
+        if(obj is Size size)
+        {
+            return $"[{size.Width}, {size.Height}]";
+        }
+
+        return (string?)obj;
+    } 
 }
 
