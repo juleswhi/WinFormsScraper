@@ -5,9 +5,20 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.1.1</Version>
+    <Version>1.1.9</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <Title>Windows Forms Form Scraper</Title>
+    <Description>A package which can collect important information about your forms and print it to file</Description>
+    <PackageProjectUrl>https://github.com/juleswhi/WinformsScraper</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/juleswhi/WinformsScraper</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>Windows Forms, FSL, Scraper, winforms, winforms scraper</PackageTags>
+    <PackageReleaseNotes>Bug Fixes</PackageReleaseNotes>
+    <Company>Callum Jules White</Company>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    <Authors>Callum Jules White</Authors>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

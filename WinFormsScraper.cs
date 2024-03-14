@@ -1,11 +1,15 @@
-﻿using System.Reflection;
+﻿using Config = WinFormsScraper.WinFormsScraperConfig;
+using System.Reflection;
+using System.Collections.Immutable;
+using System.Diagnostics;
 
 namespace WinFormsScraper;
 
 public enum ScrapeType
 {
+    ALL,
     IMPORTANT,
-    // ALL
+    SIZE_AND_LOCATION
 }
 
 /// <summary>
@@ -13,62 +17,140 @@ public enum ScrapeType
 /// </summary>
 public static class WinFormsScraper
 {
-    public static string Path = "FormDetails.txt";
-
-    public static ScrapeType Type = ScrapeType.IMPORTANT;
-    
-    private static HashSet<string> s_printedForms = new();
-    
     /// <summary>
-    /// Pretty-Prints all the scraped data to file
+    /// A Hashset of all forms previously visited
     /// </summary>
-    /// <typeparam name="T">The Type of form</typeparam>
-    /// <param name="form">The Form to scrape</param>
-    public static void Scrape<T>(T form) where T : Form
-    {
-        if(!File.Exists(Path))
-        {
-            File.Create(Path);
-        }
-        using StreamWriter streamWriter = new StreamWriter(Path, true);
+    private static HashSet<string> s_printedForms = new();
 
-        // Could potentially update the value here
-        if (s_printedForms.Any(formName => formName == typeof(T).Name))
+    /// <summary>
+    /// Scrapes everyform in the assembly
+    /// </summary>
+    /// <param name="assembly">The assembly to check</param>
+    /// <param name="scrapeType">What properties of control to print out</param>
+    public static void ScrapeAll(Assembly? assembly = null, ScrapeType? scrapeType = null)
+    {
+        scrapeType ??= Config.Type;
+        assembly ??= Assembly.GetCallingAssembly();
+
+        // Ensure the file exists
+        if(!File.Exists(Config.Path))
+        {
+            File.Create(Config.Path);
+        }
+
+        // Clear the file
+        File.WriteAllText(Config.Path, string.Empty);
+
+        // Create the streamwriter
+        using StreamWriter sw = new StreamWriter(Config.Path, true);
+
+        // Check for null
+        if(sw is null)
+        {
             return;
-
-        s_printedForms.Add(typeof(T).Name);
-
-        streamWriter?.WriteLine($"--- {typeof(T).Name} ---");
-        streamWriter?.WriteLine($"");
-
-        foreach(Control control in form.Controls)
-        {
-            streamWriter?.WriteLine($"{control.Name}:");
-            streamWriter?.WriteLine(PrettyPrint("Size", control.Size));
-            streamWriter?.WriteLine(PrettyPrint("Location", control.Location));
-            streamWriter?.WriteLine(PrettyPrint("ForeColour", control.ForeColor));
-            streamWriter?.WriteLine(PrettyPrint("BackColour", control.BackColor));
-            streamWriter?.WriteLine(PrettyPrint("Font", control.Font));
-
-            streamWriter?.WriteLine();
         }
-        streamWriter?.WriteLine();
-    }
 
-    private static string FormatSize(Size size) => $"[{size.Width}, {size.Height}]";
-    private static string FormatLocation(Point location) => $"[{location.X}, {location.Y}]";
+        // Get all types
+        Type[] types = assembly.GetTypes();
 
-    private static string PrettyPrint(string name, object value)
-    {
-        value = name switch
+        // Filter for forms
+        Type form = typeof(Form);
+        List<Type> forms = types.Where(x => x.IsSubclassOf(form) || x == form).ToList();
+
+        foreach(Type type in forms)
         {
-            "Size" => FormatSize((Size)value),
-            "Location" => FormatLocation((Point)value),
-            "Font" => $"{((Font)value).Name}\n\t\tFont Size: {((Font)value).Size}",
-            _ => value
-        };
+            // Create the instance of the form
+            var instance = Activator.CreateInstance(type);
 
-        return $"\t\t{name}: {value}";
+            // The name of the form
+            sw!.WriteLine($"--- {type.Name} ---");
+            // Extra line for clarity
+            sw!.WriteLine();
+
+            // Find the control property
+            var controlProp = type.GetProperty("Controls");
+
+            // Check if the form has the control property ( logically should always )
+            if(controlProp is null)
+            {
+                continue;
+            }
+
+            // Take the controls from the property;
+            Control.ControlCollection? controls = controlProp.GetValue(instance) as Control.ControlCollection;
+
+            // Make sure the collection exists
+            if(controls is null)
+            {
+                continue;
+            }
+
+            // Check what Information should be printed
+            ImmutableHashSet<string> filter = scrapeType switch
+            {
+                ALL => ImmutableHashSet<string>.Empty,
+                ScrapeType scrape => Config.ScrapeTypeToFilter[scrape]
+            };
+
+            if(filter is null)
+            {
+                continue;
+            }
+
+            // Iterate through all of the controls
+            foreach(Control control in controls)
+            {
+                sw!.WriteLine($"{control.Name}:");
+
+                // Write all the properties
+                foreach(var str in GetInformation(control, filter))
+                {
+                    sw.WriteLine(str);
+                }
+
+                // Line for clarity
+                sw!.WriteLine();
+            }
+            sw!.WriteLine();
+        }
+
+        // Collect all that garbage from potentially large amount of objects created
+        GC.Collect();
     }
+
+    private static IEnumerable<string> GetInformation<T>(T control, ImmutableHashSet<string> filter) where T : Control
+    {
+        var props = control.GetType().GetProperties();
+
+        foreach(var prop in props)
+        {
+            if(filter is null)
+            {
+                Debug.Print($"Filter is null");
+                continue;
+            }
+
+            if(filter.Count != 0 && !filter.Contains(prop.Name))
+            {
+                continue;
+            }
+
+
+            string str;
+            try {
+                // Grab the value of the property
+                str = $"\t\t{prop.Name}: {prop.GetMethod?.Invoke(control, new object[] { })}";
+            }
+            catch(Exception)
+            {
+                // Some weird property values may encounter this exception
+                // In that case, just ignore it
+                continue;
+            }
+
+            yield return str;
+        }
+    }
+
 }
 
