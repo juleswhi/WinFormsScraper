@@ -1,6 +1,6 @@
 ﻿# Winforms Form Scraper
 
- This package contains classes that can print out all information about your forms that you need.
+ A collection of classes that uses reflection to print out property information about forms.
 
  ## Installation
 
