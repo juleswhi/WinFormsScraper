@@ -15,18 +15,21 @@ public static class WinFormsScraper
     /// Scrapes all forms based on a certain hashset
     /// </summary>
     /// <param name="hashset"></param>
-    public static void Scrape(HashSet<string> hashset)
+    public static void Scrape(List<List<object>> p) 
     {
-        Config.ScrapeFilter = hashset;
+        if(p.Any(x => x.FirstOrDefault() is not string))
+        {
+            return;
+        }
 
-        Scrape(CUSTOM, Assembly.GetCallingAssembly());
+        Scrape(p, ALL, Assembly.GetCallingAssembly());
     }
     /// <summary>
     /// Scrapes every form in the assembly
     /// </summary>
     /// <param name="assembly">The assembly to check</param>
     /// <param name="scrapeType">What properties of control to print out</param>
-    public static void Scrape(ScrapeType? scrapeType = null, Assembly? assembly = null)
+    public static void Scrape(List<List<object>> obj_list, ScrapeType? scrapeType = null, Assembly? assembly = null)
     {
         scrapeType ??= Config.Type;
         assembly ??= Assembly.GetCallingAssembly();
@@ -58,8 +61,18 @@ public static class WinFormsScraper
 
         foreach(Type type in forms)
         {
+
+            var form_params = obj_list.FirstOrDefault(x => (x.First() as string) == type.Name);
+
+            form_params?.RemoveAt(0);
+
+            if(form_params is null)
+            {
+                form_params = [];
+            }
+
             // Create the instance of the form
-            var instance = Activator.CreateInstance(type);
+            var instance = Activator.CreateInstance(type, form_params);
 
             // The name of the form
             sw!.WriteLine($"--- {type.Name} ---");
